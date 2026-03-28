@@ -1,0 +1,159 @@
+<!-- 🔥 نفس HTML تاعك بدون تغيير (فوق) -->
+
+<!-- 🔥 فقط استبدل SCRIPT بهذا -->
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, push, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+// ✅ Firebase config
+const firebaseConfig = {
+  apiKey: "AIzaSyDBDFyiJl20ZilFxF2v0hdDrh3J4VvudaA",
+  authDomain: "seddouk-a3042.firebaseapp.com",
+  databaseURL: "https://seddouk-a3042-default-rtdb.firebaseio.com",
+  projectId: "seddouk-a3042",
+  storageBucket: "seddouk-a3042.firebasestorage.app",
+  messagingSenderId: "38396268218",
+  appId: "1:38396268218:web:3191580d5fa344b92dbc83"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+// 🔥 DATA
+let parents = [];
+let children = [];
+let currentParent = null;
+let adminPin = "2580";
+
+// 🔄 تحميل البيانات مباشرة
+onValue(ref(db, 'parents'), snapshot => {
+  parents = [];
+  snapshot.forEach(child => parents.push({...child.val(), id: child.key}));
+  loadParentSelect();
+});
+
+onValue(ref(db, 'children'), snapshot => {
+  children = [];
+  snapshot.forEach(child => children.push({...child.val(), id: child.key}));
+});
+
+// 👇 نفس الدوال لكن بدون localStorage
+
+window.login = function(){
+  let role=document.getElementById("roleSelect").value;
+
+  if(role=="admin"){
+    if(document.getElementById("adminPinInput").value==adminPin){
+      document.getElementById("adminPanel").style.display="block";
+      document.getElementById("loginPage").style.display="none";
+      document.getElementById("backBtn").style.display="inline-block";
+    } else alert("Code incorrect");
+  } else {
+    let name=document.getElementById("parentNameInput").value;
+    let pin=document.getElementById("parentPinInput").value;
+
+    let parent=parents.find(p=>p.name===name && p.pin===pin);
+    if(parent){
+      currentParent=parent;
+      document.getElementById("parentPanel").style.display="block";
+      document.getElementById("loginPage").style.display="none";
+      document.getElementById("backBtn").style.display="inline-block";
+      updateParentMessages();
+    } else alert("Erreur");
+  }
+}
+
+// ➕ Ajouter Parent
+window.addParent = function(){
+  let name=newParentName.value.trim();
+  let phone=newParentPhone.value.trim();
+  let email=newParentEmail.value.trim();
+  let pin=newParentPin.value.trim();
+
+  if(!name||!phone||!email||!pin)return alert("Remplir");
+
+  push(ref(db,'parents'),{name,phone,email,pin});
+
+  newParentName.value="";
+  newParentPhone.value="";
+  newParentEmail.value="";
+  newParentPin.value="";
+}
+
+// ➕ Ajouter Enfant
+window.addChild = function(){
+  let parent=parentSelect.value;
+  let name=childName.value.trim();
+  let age=childAge.value.trim();
+  let cls=childClass.value;
+  let att=childAttendance.value;
+
+  if(!parent||!name||!age||!cls||!att)return alert("Remplir");
+
+  let today=new Date().toLocaleDateString();
+
+  push(ref(db,'children'),{
+    parent,
+    child:name,
+    age,
+    cls,
+    attendance:{[today]:att},
+    payments:{}
+  });
+
+  childName.value="";
+  childAge.value="";
+}
+
+// 💰 تعديل الدفع
+window.togglePayment = function(childId, month){
+  let child = children.find(c=>c.id===childId);
+  if(!child) return;
+
+  let newValue = !child.payments?.[month];
+
+  update(ref(db, 'children/'+childId+'/payments'), {
+    [month]: newValue
+  });
+}
+
+// 📋 تحميل الآباء
+window.loadParentSelect = function(){
+  let sel=document.getElementById("parentSelect");
+  sel.innerHTML=`<option value="">Choisir Parent</option>`;
+  parents.forEach(p=>{
+    sel.innerHTML+=`<option value="${p.name}">${p.name}</option>`;
+  });
+}
+
+// 🔔 رسائل
+window.updateParentMessages = function(){
+  let today=new Date();
+  const months=[
+    today.toLocaleString('fr-FR',{month:'long'}),
+    new Date(today.getFullYear(),today.getMonth()-1).toLocaleString('fr-FR',{month:'long'})
+  ];
+
+  let msgs=[];
+
+  children.filter(c=>c.parent===currentParent.name).forEach(c=>{
+    months.forEach(m=>{
+      if(!c.payments?.[m]){
+        msgs.push(`⚠️ ${c.child} non payé ${m}`);
+      }
+    });
+  });
+
+  let msgDiv=document.getElementById("alwaysMessage");
+  msgDiv.innerHTML=msgs.join("<br>") || "OK";
+}
+
+// ❌ حذف Parent
+window.deleteParent = function(id){
+  if(confirm("Supprimer ?")){
+    remove(ref(db, 'parents/'+id));
+  }
+}
+
+</script>
